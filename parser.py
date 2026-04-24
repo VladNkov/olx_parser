@@ -64,8 +64,8 @@ async def parse_ad(browser, link):
     price_selectors = ['[data-testid="ad-price-container"]', '[data-testid="ad-price"]', 'h3',]
 
     for selector in price_selectors:
-        if await ad_page.locator('[data-testid="ad-price-container"]').count() > 0:
-            price = await ad_page.locator('[data-testid="ad-price-container"]').inner_text()
+        if await ad_page.locator(selector).count() > 0:
+            price = await ad_page.locator(selector).first.inner_text()
             break
 
     params = ad_page.locator('p[data-nx-name="P3"]')
