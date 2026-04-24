@@ -13,10 +13,9 @@ async def parse_ad(browser, link):
     await ad_page.goto(link, timeout=60000)
     await ad_page.wait_for_timeout(3000)
 
+    title = ''
     price = ''
-    object_type = ''
-
-
+    data_parametrs ={}
 
     if await ad_page.locator('[data-testid="ad-price-container"]').count() > 0:
         price = await ad_page.locator('[data-testid="ad-price-container"]').inner_text()
@@ -27,12 +26,13 @@ async def parse_ad(browser, link):
     for i in range(count):
         text = await params.nth(i).inner_text()
 
-        if "Вид об'єкта:" in text:
-            object_type = text.replace("Вид об'єкта:", "").strip()
-            break
+        if ":" in text:
+            key, value = text.split(':', 1)
+            data_parametrs[key.strip()] = value.strip()
 
 
-    ad_data = {'url': link, 'price': price, 'object_type': object_type}
+
+    ad_data = {'title': title, 'price': price, 'object_type': data_parametrs.get("Вид об'єкта", ''), 'url': link,}
 
     await ad_page.close()
 
@@ -86,8 +86,8 @@ async def main():
         data_ads = []
 
         for link in unique_links[:LIMIT_ADS]:
-            data_ad = await parse_ad(browser, link)
-            data_ads.append(data_ad)
+            ad = await parse_ad(browser, link)
+            data_ads.append(ad)
 
         for ad in data_ads:
             print(ad)
