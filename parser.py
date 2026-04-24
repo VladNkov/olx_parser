@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import asyncio
 
 START_URL = 'https://www.olx.ua/uk/nedvizhimost/kvartiry/'
-PAGES = 2
+PAGES = 20
 
 
 async def main():
@@ -18,7 +18,7 @@ async def main():
                 url = START_URL
             else:
                 url = f'{START_URL}?page={page_number}'
-            print(f'open page {page_number}: {url}')
+            print(f'Opening page {page_number}: {url}')
 
             await page.goto(url, timeout=60000)
             await page.wait_for_timeout(3000)
@@ -37,16 +37,16 @@ async def main():
                     page_links.append(href)
             page_links = list(dict.fromkeys(page_links))
 
-            print(f'links on page {page_number}: {len(page_links)}')
+            print(f'Count links on page {page_number}: {len(page_links)}')
 
             all_links.extend(page_links)
 
         unique_links = list(dict.fromkeys(all_links))
 
-        print(f'all links:')
+        print(f'All links:')
 
-        for link in unique_links:
-            print(link)
+        for num, link in enumerate(unique_links, start=1):
+            print(f'{num}. {link}')
 
         print(f'Total links: {len(unique_links)}')
 
