@@ -3,8 +3,40 @@ from bs4 import BeautifulSoup
 import asyncio
 
 START_URL = 'https://www.olx.ua/uk/nedvizhimost/kvartiry/'
-PAGES = 20
+PAGES = 1
+LIMIT_ADS = 5
 
+
+async def parse_ad(browser, link):
+    ad_page = await browser.new_page()
+
+    await ad_page.goto(link, timeout=60000)
+    await ad_page.wait_for_timeout(3000)
+
+    price = ''
+    object_type = ''
+
+
+
+    if await ad_page.locator('[data-testid="ad-price-container"]').count() > 0:
+        price = await ad_page.locator('[data-testid="ad-price-container"]').inner_text()
+
+    params = ad_page.locator('p[data-nx-name="P3"]')
+    count = await params.count()
+
+    for i in range(count):
+        text = await params.nth(i).inner_text()
+
+        if "Вид об'єкта:" in text:
+            object_type = text.replace("Вид об'єкта:", "").strip()
+            break
+
+
+    ad_data = {'url': link, 'price': price, 'object_type': object_type}
+
+    await ad_page.close()
+
+    return ad_data
 
 async def main():
     async with async_playwright() as p:
@@ -34,6 +66,7 @@ async def main():
                 if href and '/obyavlenie/' in href:
                     if href.startswith('/'):
                         href = 'https://www.olx.ua' + href
+                    href = href.split('?')[0]
                     page_links.append(href)
             page_links = list(dict.fromkeys(page_links))
 
@@ -50,6 +83,16 @@ async def main():
 
         print(f'Total links: {len(unique_links)}')
 
+        data_ads = []
+
+        for link in unique_links[:LIMIT_ADS]:
+            data_ad = await parse_ad(browser, link)
+            data_ads.append(data_ad)
+
+        for ad in data_ads:
+            print(ad)
+
+        await page.close()
         await browser.close()
 
 
