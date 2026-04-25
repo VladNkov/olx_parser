@@ -2,6 +2,8 @@ from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 import asyncio
 import re
+from write_to_gsheet import write_ads_in_google_sheet
+
 
 START_URL = 'https://www.olx.ua/uk/nedvizhimost/kvartiry/'
 PAGES = 1
@@ -130,6 +132,8 @@ async def main():
 
         for ad in data_ads:
             print(ad)
+
+        write_ads_in_google_sheet(data_ads)
 
         await page.close()
         await browser.close()
