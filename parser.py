@@ -54,6 +54,8 @@ async def collecting_links(page, start_url, type):
 
         all_links.extend(unique_page_links)
 
+        await asyncio.sleep(5)
+
     unique_links = []
     seen_urls = set()
 
@@ -66,13 +68,17 @@ async def collecting_links(page, start_url, type):
 
 
 async def parse_ad(browser, link, type):
-    ad_page = await browser.new_page()
+    ad_page = await browser.new_page(user_agent=("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                              "Chrome/120.0.0.0 Safari/537.36"))
 
     await ad_page.goto(link, timeout=60000)
     await ad_page.wait_for_timeout(3000)
 
 
     price = ''
+    location = ''
+    region = ''
     data_parametrs ={}
 
     match = re.search(r'-(ID[^./?]+)\.html', link)
@@ -84,6 +90,20 @@ async def parse_ad(browser, link, type):
         if await ad_page.locator(selector).count() > 0:
             price = await ad_page.locator(selector).first.inner_text()
             break
+
+    location_title = ad_page.locator('p[data-nx-name="P3"]', has_text='Місцезнаходження')
+
+    if await location_title.count() > 0:
+        location_block = location_title.first.locator('xpath=following-sibling::div[1]')
+
+        city_locator = location_block.locator('p[data-nx-name="P2"]')
+        region_locator = location_block.locator('p[data-nx-name="P3"]')
+
+        if await city_locator.count() > 0:
+            location = await city_locator.first.inner_text()
+
+        if await region_locator.count() > 0:
+            region = await region_locator.first.inner_text()
 
     params = ad_page.locator('p[data-nx-name="P3"]')
     count = await params.count()
@@ -97,6 +117,8 @@ async def parse_ad(browser, link, type):
 
     ad_data = {'ad_id': ad_id,
                'type': type,
+               'location': location,
+               'region': region,
                'price': price,
                'object_type': data_parametrs.get("Вид об'єкта", ''),
                'bilding_name': data_parametrs.get("Назва ЖК", ''),
@@ -128,18 +150,21 @@ async def parse_ad(browser, link, type):
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page(user_agent=("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"))
 
         sale_links = await collecting_links(page=page, start_url=SALE_START_URL, type='sale')
+
+        await asyncio.sleep(10)
+
         rent_links = await collecting_links(page=page, start_url=RENT_START_URL, type='rent')
 
-        # unique_links = await collecting_links(page)
-        unique_links = sale_links + rent_links
+        unique_links = sale_links[:3] + rent_links[:3]
 
-        # print(f'All links:')
         print(f'sale links: {len(sale_links)}')
-        print(f'sale links: {len(rent_links)}')
+        print(f'rent links: {len(rent_links)}')
 
         for num, link in enumerate(unique_links, start=1):
             print(f'{num}. {link}')
@@ -154,6 +179,8 @@ async def main():
 
             ad = await parse_ad(browser, link, type)
             data_ads.append(ad)
+
+            await asyncio.sleep(3)
 
         for ad in data_ads:
             print(ad)
