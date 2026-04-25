@@ -6,20 +6,22 @@ from write_to_gsheet import write_ads_in_google_sheet
 
 
 START_URL = 'https://www.olx.ua/uk/nedvizhimost/kvartiry/'
+SALE_START_URL = 'https://www.olx.ua/uk/nedvizhimost/kvartiry/prodazha-kvartir/'
+RENT_START_URL = 'https://www.olx.ua/uk/nedvizhimost/kvartiry/dolgosrochnaya-arenda-kvartir/'
 PAGES = 1
 LIMIT_ADS = 5
 
 
-async def collecting_links(page):
+async def collecting_links(page, start_url, type):
     all_links = []
 
     for page_number in range(1, PAGES + 1):
         if page_number == 1:
-            url = START_URL
+            url = start_url
         else:
-            url = f'{START_URL}?page={page_number}'
+            url = f'{start_url}?page={page_number}'
 
-        print(f'Opening page {page_number}: {url}')
+        print(f'Opening {type} page {page_number}: {url}')
 
         await page.goto(url, timeout=60000)
         await page.wait_for_timeout(3000)
@@ -37,20 +39,33 @@ async def collecting_links(page):
                     href = 'https://www.olx.ua' + href
 
                 href = href.split('?')[0]
-                page_links.append(href)
 
-        page_links = list(dict.fromkeys(page_links))
+                page_links.append({'url': href, 'type': type})
 
-        print(f'Count links on page {page_number}: {len(page_links)}')
+        unique_page_links = []
+        seen_urls = set()
 
-        all_links.extend(page_links)
+        for item in page_links:
+            if item['url'] not in seen_urls:
+                seen_urls.add(item['url'])
+                unique_page_links.append(item)
 
-    unique_links = list(dict.fromkeys(all_links))
+        print(f'Count links on {type} page {page_number}: {len(page_links)}')
+
+        all_links.extend(unique_page_links)
+
+    unique_links = []
+    seen_urls = set()
+
+    for item in all_links:
+        if item['url'] not in seen_urls:
+            seen_urls.add(item['url'])
+            unique_links.append(item)
 
     return unique_links
 
 
-async def parse_ad(browser, link):
+async def parse_ad(browser, link, type):
     ad_page = await browser.new_page()
 
     await ad_page.goto(link, timeout=60000)
@@ -81,6 +96,7 @@ async def parse_ad(browser, link):
             data_parametrs[key.strip()] = value.strip()
 
     ad_data = {'ad_id': ad_id,
+               'type': type,
                'price': price,
                'object_type': data_parametrs.get("Вид об'єкта", ''),
                'bilding_name': data_parametrs.get("Назва ЖК", ''),
@@ -115,9 +131,15 @@ async def main():
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
 
-        unique_links = await collecting_links(page)
+        sale_links = await collecting_links(page=page, start_url=SALE_START_URL, type='sale')
+        rent_links = await collecting_links(page=page, start_url=RENT_START_URL, type='rent')
 
-        print(f'All links:')
+        # unique_links = await collecting_links(page)
+        unique_links = sale_links + rent_links
+
+        # print(f'All links:')
+        print(f'sale links: {len(sale_links)}')
+        print(f'sale links: {len(rent_links)}')
 
         for num, link in enumerate(unique_links, start=1):
             print(f'{num}. {link}')
@@ -126,8 +148,11 @@ async def main():
 
         data_ads = []
 
-        for link in unique_links[:LIMIT_ADS]:
-            ad = await parse_ad(browser, link)
+        for item in unique_links[:LIMIT_ADS]:
+            link = item['url']
+            type = item['type']
+
+            ad = await parse_ad(browser, link, type)
             data_ads.append(ad)
 
         for ad in data_ads:
