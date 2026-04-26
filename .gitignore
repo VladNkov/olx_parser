@@ -1,7 +1,6 @@
-venv/
+.venv/
+credentials/
+*.json
 .env
-credentials.json
 __pycache__/
-.ipynb_checkpoints/
-*.csv.venv/
-.idea/
+*.pyc
